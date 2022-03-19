@@ -1,6 +1,8 @@
 from time import mktime
 from pytz import utc, timezone
 from datetime import datetime
+import json
+from bson.json_util import loads, dumps
 
 """
     Datetime utils
@@ -44,6 +46,23 @@ def flatten_json(y, targetFields, flatList=False):
 
     flatten(y)
     return out
+
+
+def mongoDictToJson(d, jsonFileName):
+    """
+    This helper func extracts a python dictionary loaded from mongo (with ObjectID)
+    and stores it into a json file.
+    :param d: the dictionary.
+    :param jsonFileName: the name of the json file included .json extension.
+    :return: Void
+    """
+    # unwrap obj ID and keep str value
+    for obj in d:
+        obj["_id"] = str(obj["_id"])
+
+    f = open(jsonFileName, "w")
+    json.dump(d, f)
+    f.close()
 
 
 """
@@ -160,4 +179,3 @@ def cleanMongoData():
     # insert new documents
     ids = clean_collection.insert_many(flatten_data)
     return ids, flatten_data
-
