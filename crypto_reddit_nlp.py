@@ -4,7 +4,7 @@ Source Code
 nlp on reddit:
 https://medium.com/bitgrit-data-science-publication/sentiment-analysis-on-reddit-tech-news-with-python-cbaddb8e9bb6
 INSPIRED FROM:
-https://www.learndatasci.com/tutorials/sentiment-analysis-reddit-headlines-pythons-nltk/ 
+https://www.learndatasci.com/tutorials/sentiment-analysis-reddit-headlines-pythons-nltk/
 
 nlp on reddit with data preprocessing
 https://levelup.gitconnected.com/reddit-sentiment-analysis-with-python-c13062b862f6
