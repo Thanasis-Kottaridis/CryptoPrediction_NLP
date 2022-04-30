@@ -28,10 +28,11 @@ import pandas as pd
 import utils
 
 # Target Timestamp
+# Friday, October 29, 2021 5:07:29 PM
 TARGET_TIMESTAMP = 1635527249
 
 # data file name:
-file_name = "reddit_crypto_data.csv"
+file_name = "reddit_crypto_test_data.csv"  # "reddit_crypto_data.csv"
 
 # REDDIT AUTH
 CLIENT_ID = "IcTrWsQDFCcZEe3rWrlB4A"
@@ -48,7 +49,7 @@ if __name__ == '__main__' :
 
     api = PushshiftAPI(reddit)
 
-    FROM_TIMESTAMP = 1641233556
+    FROM_TIMESTAMP = 1651160234
 
     df = pd.DataFrame()  # initialize dataframe
 
