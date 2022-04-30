@@ -110,11 +110,11 @@ def dataPreprocessing(df):
     # ensure that all titles are Str
     df['title'] = df['title'].astype(str)
 
-    # 1. remove punctuation from title.
-    df['clean_title'] = df['title'].apply(lambda x: removePunctuation(x))
+    # 1. Remove URLS
+    df['clean_title'] = df['title'].apply(lambda x : re.sub(r"http\S+", '', x))
 
-    # 2. Remove URLS
-    df['clean_title'] = df['clean_title'].apply(lambda x: re.sub(r"http\S+", '', x))
+    # 2. remove punctuation from title.
+    # df['clean_title'] = df['clean_title'].apply(lambda x: removePunctuation(x))
 
     # # 3. Remove all the special characters
     # df['clean_title'] = df['clean_title'].apply(lambda x: re.sub(r'\w+', '', x))
@@ -129,16 +129,16 @@ def dataPreprocessing(df):
     df['clean_title'] = df['clean_title'].apply(lambda x: re.sub(r'\s+', ' ', x))
 
     # 6. make text to lowercase and tokenize the text
-    df['clean_title'] = df['clean_title'].apply(lambda x: tokenize(x.lower()))
+    # df['clean_title'] = df['clean_title'].apply(lambda x: tokenize(x.lower()))
 
     # 7. remove stop words
-    df['clean_title'] = df['clean_title'].apply(lambda x: removeStopWords(x))
+    # df['clean_title'] = df['clean_title'].apply(lambda x: removeStopWords(x))
 
     # 8. Lemmatize / Stem
-    df['clean_title'] = df['clean_title'].apply(lambda x: lemmatizeAndStemming(x))
+    # df['clean_title'] = df['clean_title'].apply(lambda x: lemmatizeAndStemming(x))
 
     # 9. Join tokens in to sentence
-    df['clean_title'] = df['clean_title'].apply(lambda x: " ".join(x))
+    # df['clean_title'] = df['clean_title'].apply(lambda x: " ".join(x))
 
     # 10. Replace empty titles with NaN
     df['clean_title'].replace(r'^\s*$', np.nan, regex=True, inplace=True)
