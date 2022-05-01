@@ -45,7 +45,7 @@ from datetime import datetime
 # sentiment analysis
 import nltk
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
-from nltk.stem import  WordNetLemmatizer, PorterStemmer
+from nltk.stem import WordNetLemmatizer, PorterStemmer
 from nltk.tokenize import word_tokenize, RegexpTokenizer  # tokenize words
 from nltk.corpus import stopwords
 
@@ -89,6 +89,9 @@ def removeStopWords(text):
 
 
 def lemmatizeAndStemming(text):
+    # download necessary nltk library.
+    nltk.download('omw-1.4')
+
     lemmatizer = WordNetLemmatizer()
     text = [lemmatizer.lemmatize(word) for word in text]
 
@@ -150,17 +153,50 @@ def dataPreprocessing(df):
     return df
 
 
-if __name__ == '__main__' :
-    start_time = time.time()
+def getPolarity(df):
+    """
+    This helper function is used in order to get polarity of all reddit post titles in a given DF.
+    polarity is calculated using NLTK and VADER analyzer.
 
+    :param df: dataframe filed with preprocessed reddit posts
+    :return: a dataframe that contains posts with their polarity and their label.
+    """
     # Downloading NLTK’s databases
     nltk.download('vader_lexicon')  # get lexicons data
     nltk.download('punkt')  # Pre-trained models that help us tokenize sentences.
     nltk.download('stopwords')
-    nltk.download('omw-1.4')
 
     # Initialize Sentiment  Analyzer
     sid = SentimentIntensityAnalyzer()
+
+    # get polarity of each post
+    title_res = [*df['clean_title'].apply(sid.polarity_scores)]
+    comment_res = [*df['clean_title'].apply(sid.polarity_scores)]
+    sentiment_df = pd.DataFrame.from_records(title_res)
+    pprint(sentiment_df.head())
+
+    # add polarity columns to DF.
+    df = pd.concat([df, sentiment_df], axis=1, join='inner')
+    pprint(df.head())
+
+    # Choose labeling threshold
+    THRESHOLD = 0.02
+
+    conditions = [
+        (df['compound'] <= -THRESHOLD),
+        (df['compound'] > -THRESHOLD) & (df['compound'] < THRESHOLD),
+        (df['compound'] >= THRESHOLD),
+    ]
+
+    # label posts
+    values = ["neg", "neu", "pos"]
+    df['label'] = np.select(conditions, values)
+
+    return df
+
+
+if __name__ == '__main__' :
+    start_time = time.time()
 
     # Get Data
     redditPostsDf = pd.read_csv(DATA_FILE_NAME, sep='\t')
@@ -168,37 +204,8 @@ if __name__ == '__main__' :
     # Data Preprocessing
     redditPostsDf = dataPreprocessing(redditPostsDf)
 
-    """
-        @TODO Data Cleanning
-        @Remove:
-        - The post contains “give away” or “giving away”.
-        - The post contains “pump”, “register”, or “join”.
-        - The post contains more than 14 hashtags
-        - The post contains more than 14 ticker symbols.
-    """
-
-
-    # get polarity of each post
-    title_res = [*redditPostsDf['clean_title'].apply(sid.polarity_scores)]
-    comment_res = [*redditPostsDf['clean_title'].apply(sid.polarity_scores)]
-    sentiment_df = pd.DataFrame.from_records(title_res)
-    pprint(sentiment_df.head())
-
-    # add polarity columns to DF.
-    redditPostsDf = pd.concat([redditPostsDf, sentiment_df], axis=1, join='inner')
-    pprint(redditPostsDf.head())
-
-    # Choose labeling threshold
-    THRESHOLD = 0.02
-
-    conditions = [
-        (redditPostsDf['compound'] <= -THRESHOLD),
-        (redditPostsDf['compound'] > -THRESHOLD) & (redditPostsDf['compound'] < THRESHOLD),
-        (redditPostsDf['compound'] >= THRESHOLD),
-    ]
-
-    values = ["neg", "neu", "pos"]
-    redditPostsDf['label'] = np.select(conditions, values)
+    # get polarity of all posts
+    redditPostsDf = getPolarity(redditPostsDf)
 
     # plot information about labels
     countStatus = redditPostsDf.label.value_counts()

@@ -22,10 +22,19 @@ https://coinbound.io/best-crypto-subreddits/
 
 """
 
+# Get from
+import pymongo
+import utils
 import praw
 from psaw import PushshiftAPI
 import pandas as pd
-import utils
+import time
+import crypto_reddit_nlp as crn
+
+# Store Type
+# True => Store in monge
+# False => Store in CSV.
+shouldStoreInMongo = True
 
 # Target Timestamp
 # Friday, October 29, 2021 5:07:29 PM
@@ -41,6 +50,11 @@ SECRET_KEY = 'HZQy-nneDNv4THu_G8MhVJ96KOq4cg'
 
 if __name__ == '__main__' :
 
+    # get mongo client
+    client, db = utils.connectMongoDB()
+    collection = db.reddit_crypto_data
+
+    # connect to reddit api
     reddit = praw.Reddit(
         client_id=CLIENT_ID,
         client_secret=SECRET_KEY,
@@ -49,20 +63,45 @@ if __name__ == '__main__' :
 
     api = PushshiftAPI(reddit)
 
-    FROM_TIMESTAMP = 1651160234
+    print("-------- CURRENT UNIX --------")
+    print(f"{time.time()}")
+    print("--------------------------------")
 
-    df = pd.DataFrame()  # initialize dataframe
+    FROM_TIMESTAMP = int(time.time())
+    if shouldStoreInMongo:
+        """
+            @SOS!!!!
+            Change target timestamp to most recent post stored in MONGO.
+            If documents exists in mongo that's mean that this script has run again with flag shouldStoreInMongo = True
+            so we need to insert to mongo only reddit posts performed after last run.
+        """
+        cursor = collection.find().sort("created_unix", pymongo.DESCENDING).limit(1)
+        for doc in cursor:
+            TARGET_TIMESTAMP = doc["created_unix"]
+
+    # Use This if you want to write in .CSV
+    # initialize dataframe
+    df = pd.DataFrame()
 
     while True :
 
+        # Use this if you want to store it in mongo.
+        if shouldStoreInMongo :
+            # initialize dataframe
+            df = pd.DataFrame()
+
         # The `search_comments` and `search_submissions` methods return generator objects
-        gen = api.search_submissions(
-            before=FROM_TIMESTAMP,
-            after=TARGET_TIMESTAMP,
-            subreddit="Bitcoin",
-            sort="desc",
-            limit=100
-        )
+        try:
+            gen = api.search_submissions(
+                before=int(FROM_TIMESTAMP),
+                after=int(TARGET_TIMESTAMP),
+                subreddit="Bitcoin",
+                sort="desc",
+                limit=100
+            )
+        except:
+            print("Empty response no more data")
+            break
 
         # check if response has data
         results = list(gen)
@@ -72,9 +111,10 @@ if __name__ == '__main__' :
 
         for post in results :
             # append relevant data to dataframe
+
             df = df.append({
                 'id' : post.id,
-                'subreddit' : post.subreddit,
+                'subreddit' : str(post.subreddit),
                 'fullname' : post.name,
                 'title' : post.title,
                 'selftext' : post.selftext,
@@ -85,6 +125,12 @@ if __name__ == '__main__' :
                 'created_iso' : utils.utc_to_datetime(post.created),
                 'created_unix' : post.created
             }, ignore_index=True)
+
+        # Preform NLP Analysis for reddit batch.
+        # - First perform preprocessing
+        # - And then NLP using VENDER.
+        df = crn.dataPreprocessing(df)
+        df = crn.getPolarity(df)
 
         # get last subreddit created time
         created_unix = int(df.iloc[-1 :].created_unix)
@@ -100,6 +146,11 @@ if __name__ == '__main__' :
         else :
             FROM_TIMESTAMP = created_unix
 
-    # write df to CSV
-    print("Store DF")
-    df.to_csv(file_name, sep='\t', encoding='utf-8')
+        if shouldStoreInMongo :
+            # write to Mongo
+            print("Insert to Mongo")
+            collection.insert_many(df.to_dict('records'))
+        else:
+            # write df to CSV
+            print("Store DF")
+            df.to_csv(file_name, sep='\t', encoding='utf-8')
