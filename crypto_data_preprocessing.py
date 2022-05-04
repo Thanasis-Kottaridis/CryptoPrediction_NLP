@@ -8,9 +8,13 @@ import json
 from bson.json_util import loads, dumps
 
 # Consts:
-shouldUseMongoData = False  # If true fetch data from processed_crypto_data Collection Else fetch from local CSV
-shouldCreateCSV = False  # if true store flatten data to CSV file
+shouldUseMongoData = True  # If true fetch data from processed_crypto_data Collection Else fetch from local CSV
+shouldCreateCSV = True  # if true store flatten data to CSV file
+doPlots = True
 file_name = "flatten_crypto_data.csv"
+
+# Unix Time Consts
+ONE_MINUTE_SECONDS = 60  # 60 seconds
 
 
 def cleanMongoData(storeToMongo=False) :
@@ -99,8 +103,8 @@ def cleanOutliers(df, columnList) :
     df_filtered = df.copy()
     for col in columnList :
         # quantile column
-        q_low = df_filtered[str(col)].quantile(0.05)
-        q_hi = df_filtered[str(col)].quantile(0.95)
+        q_low = df_filtered[str(col)].quantile(0.03)
+        q_hi = df_filtered[str(col)].quantile(0.97)
 
         mask = ((df_filtered[str(col)] > q_hi) | (df_filtered[str(col)] < q_low))
         df_filtered.loc[mask, str(col)] = np.nan
@@ -127,6 +131,50 @@ def storeFlattenData(flatten_data) :
     return ids
 
 
+def getRedditPostsFromMongo():
+    # connecting or switching to the database
+    connection, db = utils.connectMongoDB()
+
+    # creating or switching to ais_navigation collection
+    collection = db.reddit_crypto_data
+
+    # get reddit posts from mongo
+    res = collection.find()
+    jsonData = list(res)
+
+    # create Dataframe with results
+    resultsDf = pd.DataFrame().from_dict(jsonData)
+
+    return resultsDf
+
+
+def getWeightedRedditPolarity(df, timeFrom, timeRange) :
+
+    # calculate timeTo
+    timeTo = timeFrom + timeRange
+
+    # filter results df
+    resultsDf = df[(df["created_unix"] < timeTo) & (df["created_unix"] >= timeFrom)]
+
+    scoreSum = resultsDf["score"].sum()
+    print("-------- weighted_polarity calculated --------")
+    if scoreSum == 0:
+        res = resultsDf['weighted_polarity'].sum()
+        print(f"-------- {res} -------- \n")
+        return res
+    else:
+        res = resultsDf['weighted_polarity'].sum() / resultsDf["score"].sum()
+        print(f"-------- {res} -------- \n")
+        return res
+
+
+def grouped_weighted_avg(values, weights) :
+    if weights == 0:
+        return 0
+    else:
+        return (values * weights) / weights
+
+
 if __name__ == '__main__' :
 
     if shouldUseMongoData :
@@ -136,6 +184,8 @@ if __name__ == '__main__' :
 
         # Create Df with flatten values
         flatten_df = pd.DataFrame.from_dict(flattenData)
+        # ensure that data are numeric
+        flatten_df = flatten_df.apply(pd.to_numeric)
 
         # Column Rename on Flatten DF
         flatten_df.rename(
@@ -157,7 +207,7 @@ if __name__ == '__main__' :
                 "Quotes_BTC_quote_USD_percent_change_7d" : "percent_change_7d",
                 "Quotes_BTC_quote_USD_percent_change_90d" : "percent_change_90d",
                 "Quotes_BTC_quote_USD_price" : "quote_USD_price",
-                "Quotes_BTC_quote_USD_volume_24h" : "volume_24h",
+                "Quotes_BTC_quote_USD_volume_24h" : "quote_volume_24h",
                 "Quotes_BTC_quote_USD_volume_change_24h" : "volume_change_24h",
                 "Quotes_BTC_total_supply" : "total_supply",
                 "Ticker_ask" : "ask_24h",  # OHLC ask last 24h
@@ -223,9 +273,10 @@ if __name__ == '__main__' :
     pprint(fill_nan_df.head())
 
     # Plot to detect outliers
-    # for col in flatten_df.columns.values.tolist() :
-    #     boxplot = flatten_df.boxplot(column=[str(col)])
-    #     plt.show()
+    # if doPlots :
+    #     for col in flatten_df.columns.values.tolist() :
+    #         boxplot = flatten_df.boxplot(column=[col])
+    #         plt.show()
 
     # Clean outliers if exist.
     column_list = [
@@ -244,7 +295,7 @@ if __name__ == '__main__' :
         "percent_change_7d",
         "percent_change_90d",
         "quote_USD_price",
-        "volume_24h",
+        'quote_volume_24h',
         "volume_change_24h",
         "ask_24h",  # OHLC ask last 24h
         "bid_24h",  # OHLC bid last 24h
@@ -266,6 +317,24 @@ if __name__ == '__main__' :
     pprint(isNullDf.head())
 
     # Plot to detect outliers
-    for col in flatten_df.columns.values.tolist() :
-        boxplot = flatten_df.boxplot(column=[str(col)])
-        plt.show()
+    if doPlots :
+        for col in flatten_df.columns.values.tolist() :
+            boxplot = flatten_df.boxplot(column=[col])
+            plt.show()
+
+    # get reddit posts from mongo
+    reddit_df = getRedditPostsFromMongo()
+    reddit_df['weighted_polarity'] = reddit_df["compound"] * reddit_df['score']
+    print(reddit_df["weighted_polarity"])
+
+    # Get reddit compound polarity for each row
+    flatten_df["reddit_compound_polarity"] = flatten_df.apply(lambda row: getWeightedRedditPolarity(
+        df=reddit_df,
+        timeFrom=row['unix_timestamp'],
+        timeRange=30 * ONE_MINUTE_SECONDS
+    ), axis=1)
+
+    print(flatten_df["reddit_compound_polarity"])
+
+    # store data to mongo
+    storeFlattenData(flatten_df.to_dict('records'))
