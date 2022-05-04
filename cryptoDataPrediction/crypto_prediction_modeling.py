@@ -69,8 +69,11 @@ def getModelCheckpointCallback(checkpoint_path) :
     )
 
 
-def display_training_curves(training, validation, title, subplot) :
-    ax = plt.subplot(subplot)
+def display_training_curves(training, validation, title, subplot=None) :
+    if subplot is not None:
+        ax = plt.subplot(subplot)
+    else:
+        ax = plt.subplot()
     ax.plot(training)
     ax.plot(validation)
     ax.set_title('model ' + title)
@@ -78,6 +81,7 @@ def display_training_curves(training, validation, title, subplot) :
     ax.set_xlabel('epoch')
     ax.legend(['training', 'validation'])
     plt.show()
+    return
 
 
 if __name__ == '__main__' :
@@ -128,10 +132,10 @@ if __name__ == '__main__' :
 
     """
         Standardising Our Features
-        
+
         Standardisation helps deep learning model training by ensuring
         that parameters can exist in the same multi dimensional space
-        
+
         - We will use standardisation for our predictor by
           removing mean and scaling to unit variance.
     """
@@ -148,15 +152,15 @@ if __name__ == '__main__' :
         - Each element o y_series is a univariant time serieas that contains 15 observations 
           of bitcoin price ( target prediction interval 15 min)
     """
-    X_series, y_series = toMultivariateSeries(X_trans, y_trans, 120, 15)
+    X_series, y_series = toMultivariateSeries(X_trans, y_trans, 120, 1)
     print(X_series.shape, y_series.shape)
 
     # Split Train Test Dataset
     # To speed up model designing we will use only 20% of dataset
     # in order to see how LSTM Algorithm works on the Data.
     cutoff = round(0.90 * len(X_series)) if isDemoMode else 0
-    X_demo_series = X_series[cutoff:]
-    y_demo_series = y_series[cutoff:]
+    X_demo_series = X_series[cutoff :]
+    y_demo_series = y_series[cutoff :]
 
     train_X, train_y, valid_X, valid_y, test_X, test_y = train_test_valid_split(
         X_demo_series,
@@ -171,7 +175,7 @@ if __name__ == '__main__' :
     print("----------------------------\n")
 
     # Network Configurations
-    EPOCHS = 10
+    EPOCHS = 100
     BATCH_SIZE = 32
     TRAIN_COUNT = len(train_X)
     VAL_COUNT = len(valid_X)
@@ -201,10 +205,17 @@ if __name__ == '__main__' :
                   metrics=['mse'])
     model.summary()
 
-    checkpoint_dir = "cryptoDataPrediction/training_demo/cp-{epoch:04d}.ckpt"
+    """
+        Model directories:
+        - training_demo_1min
+        - training_demo_15min
+        - training_demo_30min
+        - training_demo_60min
+    """
+    checkpoint_dir = "cryptoPrediction/training_demo_1min"
     latest_checkpoint = tf.train.latest_checkpoint(checkpoint_dir)
 
-    if latest_checkpoint is not None:
+    if latest_checkpoint is not None :
         # Load the previously saved weights
         model.load_weights(latest_checkpoint)
 
@@ -212,9 +223,9 @@ if __name__ == '__main__' :
         loss, acc = model.evaluate(valid_X, valid_y, verbose=2)
 
         # display training curves
-        display_training_curves([], loss, 'loss', 212)
+        display_training_curves([], loss, 'loss')
 
-    else:
+    else :
         # fit network
         history = model.fit(
             train_X,
@@ -224,23 +235,22 @@ if __name__ == '__main__' :
             validation_data=(test_X, test_y),
             verbose=2,
             shuffle=False,
-            callbacks=[getModelCheckpointCallback(checkpoint_dir)]  # save epoch to file name
+            callbacks=[getModelCheckpointCallback(checkpoint_dir+"/cp-{epoch:04d}.ckpt")]  # add the file name and save epoch to file name
         )
 
         # display training curves
-        display_training_curves(history.history['loss'], history.history['val_loss'], 'loss', 212)
+        display_training_curves(history.history['loss'], history.history['val_loss'], 'loss')
 
     # make a prediction
     y_predict = model.predict(test_X)
     # invert scaling for forecast
-    inv_y_predict = np.concatenate((y_predict, test_X[:, -7 :]), axis=1)
-    inv_y_predict = scaler.inverse_transform(inv_y_predict)
-    inv_y_predict = inv_y_predict[:, 0]
+    inv_y_predict = scaler.inverse_transform(y_predict)
     # invert scaling for actual
     test_y = test_y.reshape((len(test_y), 1))
-    inv_y = np.concatenate((test_y, test_X[:, -7 :]), axis=1)
-    inv_y = scaler.inverse_transform(inv_y)
-    inv_y = inv_y[:, 0]
+    inv_y = scaler.inverse_transform(test_y)
     # calculate RMSE
     rmse = sqrt(mean_squared_error(inv_y, inv_y_predict))
     print('Test RMSE: %.3f' % rmse)
+
+    # plot
+    display_training_curves(inv_y, inv_y_predict, 'predicted vs actual price')
