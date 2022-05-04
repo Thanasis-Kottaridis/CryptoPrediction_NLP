@@ -1,0 +1,5 @@
+.idea/
+*.csv
+*.tsv
+*.json
+cryptoDataPrediction/cryptoPrediction/
