@@ -1,5 +1,6 @@
 # Basic Imports
 import utils
+import random
 import os
 import matplotlib.pyplot as plt
 import numpy as np
@@ -11,12 +12,13 @@ from sklearn.metrics import mean_squared_error
 from math import sqrt
 # Deep learning import
 import tensorflow as tf
-from tensorflow.python.keras.layers import Dense, LSTM, Dropout, CuDNNLSTM
-from tensorflow.python.keras.models import Sequential
+from tensorflow.keras.layers import Dense, LSTM, Dropout, BatchNormalization
+import tensorflow.keras as keras
+from tensorflow.keras.models import Sequential
 
 # Constants
 isDemoMode = True
-
+doPlots = True
 
 def toMultivariateSeries(input_sequences, output_sequence, n_steps_in, n_steps_out) :
     """
@@ -70,6 +72,9 @@ def getModelCheckpointCallback(checkpoint_path) :
 
 
 def display_training_curves(training, validation, title, subplot=None) :
+
+    if not doPlots:
+        return
     if subplot is not None:
         ax = plt.subplot(subplot)
     else:
@@ -109,13 +114,14 @@ if __name__ == '__main__' :
     # Plot Bitcoin Price from collected data
 
     # Increase size of plot in jupyter
-    plt.rcParams["figure.figsize"] = (10, 8)
-    plt.plot(df['quote_USD_price'])
-    plt.xlabel("Observations")
-    plt.ylabel("Price (USD)")
-    plt.title("Bitcoin price over time")
-    plt.savefig("initial_plot.png", dpi=250)
-    plt.show()
+    if doPlots:
+        plt.rcParams["figure.figsize"] = (10, 8)
+        plt.plot(df['quote_USD_price'])
+        plt.xlabel("Observations")
+        plt.ylabel("Price (USD)")
+        plt.title("Bitcoin price over time")
+        plt.savefig("initial_plot.png", dpi=250)
+        plt.show()
 
     # Clean Data
     # - Drop id column
@@ -152,7 +158,7 @@ if __name__ == '__main__' :
         - Each element o y_series is a univariant time serieas that contains 15 observations 
           of bitcoin price ( target prediction interval 15 min)
     """
-    X_series, y_series = toMultivariateSeries(X_trans, y_trans, 120, 1)
+    X_series, y_series = toMultivariateSeries(X_trans, y_trans, 60, 1)
     print(X_series.shape, y_series.shape)
 
     # Split Train Test Dataset
@@ -175,7 +181,7 @@ if __name__ == '__main__' :
     print("----------------------------\n")
 
     # Network Configurations
-    EPOCHS = 100
+    EPOCHS = 250
     BATCH_SIZE = 32
     TRAIN_COUNT = len(train_X)
     VAL_COUNT = len(valid_X)
@@ -184,31 +190,47 @@ if __name__ == '__main__' :
     # Design Network
     # TODO MAKE IT A CLASS.
 
-    model = Sequential()
-    model.add(LSTM(
-        units=50,
-        # return_sequences=True,
-        input_shape=(train_X.shape[1], train_X.shape[2])
-    ))
-    # model.add(Dropout(0.2))
-    # model.add(LSTM(units=50, return_sequences=True))
-    # model.add(Dropout(0.2))
-    # model.add(LSTM(units=50))
-    # model.add(Dropout(0.2))
-    model.add(Dense(units=1))
+    model = Sequential([
+        # BatchNormalization(),
+        LSTM(
+            units=100,
+            return_sequences=True,
+            input_shape=(train_X.shape[1], train_X.shape[2])
+        ),
+        Dropout(0.2),
+        LSTM(units=50, return_sequences=True),
+        Dropout(0.2),
+        LSTM(units=50),
+        Dropout(0.2),
+        Dense(units=1, activation="sigmoid")
+    ])
+
+    # # model.add(Dropout(0.2))
+    # # model.add(LSTM(units=50, return_sequences=True))
+    # # model.add(Dropout(0.2))
+    # # model.add(LSTM(units=50))
+    # # model.add(Dropout(0.2))
+    # # model.add(Dense(units=256))
+    # # model.add(Dense(units=128))
+    # model.add(Dropout(0.5))
+    # model.add(Dense(units=1, activation="sigmoid"))
 
     # compile model
     # model.compile(optimizer="adam", loss="mean_squared_error")
-    # model.compile(loss='mae', optimizer='adam')
-    model.compile(optimizer='adam',
-                  loss='mae',
-                  metrics=['mse'])
+    model.compile(loss='mae', optimizer='adam')  # Use Adam for adaptive learning rate during training.
+    # opt = keras.optimizers.Adam(learning_rate=0.01)
+    # model.compile(optimizer=opt,
+    #               loss='mae',
+    #               metrics=['mse'])
     model.summary()
 
     """
         Model directories:
         - training_demo_1min
+        - training_demo2_1min
+        - training_demo3_1min_multiple_LSTM
         - training_demo_15min
+        - training_demo3_15min_multiple_LSTM
         - training_demo_30min
         - training_demo_60min
     """
@@ -220,10 +242,10 @@ if __name__ == '__main__' :
         model.load_weights(latest_checkpoint)
 
         # Re-evaluate the model
-        loss, acc = model.evaluate(valid_X, valid_y, verbose=2)
-
-        # display training curves
-        display_training_curves([], loss, 'loss')
+        # loss, acc = model.evaluate(valid_X, valid_y, verbose=2)
+        #
+        # # display training curves
+        # display_training_curves([], loss, 'loss')
 
     else :
         # fit network
@@ -246,11 +268,16 @@ if __name__ == '__main__' :
     # invert scaling for forecast
     inv_y_predict = scaler.inverse_transform(y_predict)
     # invert scaling for actual
-    test_y = test_y.reshape((len(test_y), 1))
+    # test_y = test_y.reshape((len(test_y), 1))
     inv_y = scaler.inverse_transform(test_y)
     # calculate RMSE
     rmse = sqrt(mean_squared_error(inv_y, inv_y_predict))
     print('Test RMSE: %.3f' % rmse)
 
     # plot
+    # max_range = 5
+    # for i in range(0, max_range):
+    #     value = random.randint(0, len(inv_y_predict))
+    #     display_training_curves(inv_y[value], inv_y_predict[value], 'predicted vs actual price')
+
     display_training_curves(inv_y, inv_y_predict, 'predicted vs actual price')
