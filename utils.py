@@ -1,3 +1,5 @@
+import pandas as pd
+import matplotlib.pyplot as plt
 from time import mktime
 from pytz import utc, timezone
 from datetime import datetime
@@ -98,3 +100,81 @@ def connectMongoDB() :
     except :
         print("Could not connect MongoDB")
 
+
+"""
+    Dataframe Preparation Utils
+"""
+
+
+def setDateTimeAsIndex(df, unixTimestampColumn='unix_timestamp', targetName='datetime'):
+    """
+    Use this function to convert unix timestamp to datetime and set it as index in targer DF
+    :param df: target Dataframe
+    :param unixTimestampColumn: initial unix timestamp column name
+    :param targetName: target name for datetime column.
+    :return: dataframe after changes applied.
+    """
+    df[unixTimestampColumn] = pd.to_datetime(df[unixTimestampColumn], unit='s')
+    df.rename(columns={unixTimestampColumn : targetName}, inplace=True)
+    df.set_index(targetName, inplace=True)
+    return df
+
+
+def filterColumns(df, selectedColumns, reindex=True):
+    """
+    Use this function to keep selected columns and change their order
+    :param df: target pandas dataframe
+    :param selectedColumns: a list that contains target column names
+    :param reindex: boolean flag that indicated if reindex will apply default [True]
+    :return: returns dataframe after transformations
+    """
+    df = df.drop(columns=[col for col in df if col not in selectedColumns])
+    if reindex:
+        df = df.reindex(columns=selectedColumns)
+    return df
+
+
+def filterInMonths(df, selectedMonths):
+    """
+    This helper func is used to filter df rows in month,
+    @SOS: this function assumes that date time is the index of the dataframe
+    :param df: target pandas dataframe
+    :param selectedMonths: a  list that contains target months in integers 1 -> January 2 -> february etc.
+    :return: returns dataframe after transformations
+    """
+    targetIndexes = [i for i in df.index if i.month in selectedMonths]
+    filter_df = df[df.index.isin(targetIndexes)]
+    return filter_df
+
+
+"""
+    Display Data Utils
+"""
+
+
+def display_training_curves(
+        training,
+        validation,
+        title,
+        x_title="Minute Observations",
+        y_title="Closing Price",
+        subplot=None
+) :
+    plt.figure(figsize=(15, 9))
+    plt.grid(True)
+
+    if subplot is not None:
+        ax = plt.subplot(subplot)
+    else:
+        ax = plt.subplot()
+
+    ax.plot(training)
+    ax.plot(validation)
+    ax.set_title(title)
+    plt.xlabel(x_title)
+    plt.ylabel(y_title)
+
+    ax.set_ylabel(title)
+    ax.set_xlabel('epoch')
+    ax.legend(['training', 'validation'])
+    plt.show()
