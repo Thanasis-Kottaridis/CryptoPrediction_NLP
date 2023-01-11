@@ -24,7 +24,7 @@ print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 print(device_lib.list_local_devices())
 
 # Constants
-DATA_FILE_NAME = 'final_crypto_data.csv'
+DATA_FILE_NAME = '../Data/final_crypto_data.csv'
 readFromMongo = False
 isDemoMode = True
 doPlots = True

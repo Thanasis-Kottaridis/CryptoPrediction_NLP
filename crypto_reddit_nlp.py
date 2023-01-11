@@ -39,7 +39,6 @@ import time
 
 # visualization imports TODO REMOVE THEM ON DEPLOYED SCRIPT.
 import matplotlib.pyplot as plt
-import seaborn as sns
 from datetime import datetime
 
 # sentiment analysis
@@ -54,8 +53,8 @@ import string
 import re
 import emoji
 
-DATA_FILE_NAME = "reddit_crypto_test_data.csv"  # "reddit_crypto_data.csv"
-NLP_DATA_FILE_NAME = 'nlp_crypto_test_data.tsv'
+DATA_FILE_NAME = "Data/reddit_crypto_test_data.csv"  # "reddit_crypto_data.csv"
+NLP_DATA_FILE_NAME = 'Data/nlp_crypto_test_data.tsv'
 
 
 def removePunctuation(text):

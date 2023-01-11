@@ -34,21 +34,21 @@ import crypto_reddit_nlp as crn
 # Store Type
 # True => Store in monge
 # False => Store in CSV.
-shouldStoreInMongo = True
+shouldStoreInMongo = False
 
 # Target Timestamp
 # Friday, October 29, 2021 5:07:29 PM
 TARGET_TIMESTAMP = 1635527249
 
 # data file name:
-file_name = "reddit_crypto_test_data.csv"  # "reddit_crypto_data.csv"
+file_name = "Data/reddit_crypto_test_data.csv"  # "reddit_crypto_data.csv"
 
 # REDDIT AUTH
 CLIENT_ID = "IcTrWsQDFCcZEe3rWrlB4A"
 
 SECRET_KEY = 'HZQy-nneDNv4THu_G8MhVJ96KOq4cg'
 
-if __name__ == '__main__' :
+if __name__ == '__main__':
 
     # get mongo client
     client, db = utils.connectMongoDB()
@@ -61,7 +61,7 @@ if __name__ == '__main__' :
         user_agent='MyBot/0.0.1'
     )
 
-    api = PushshiftAPI(reddit)
+    api = PushshiftAPI(praw=reddit)
 
     print("-------- CURRENT UNIX --------")
     print(f"{time.time()}")
@@ -83,7 +83,7 @@ if __name__ == '__main__' :
     # initialize dataframe
     df = pd.DataFrame()
 
-    while True :
+    while True:
 
         # Use this if you want to store it in mongo.
         if shouldStoreInMongo :

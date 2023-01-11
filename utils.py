@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 from time import mktime
 from pytz import utc, timezone
@@ -145,6 +146,43 @@ def filterInMonths(df, selectedMonths):
     targetIndexes = [i for i in df.index if i.month in selectedMonths]
     filter_df = df[df.index.isin(targetIndexes)]
     return filter_df
+
+
+def train_test_valid_split(total_x, total_y, train_size=0.9, valid_size=0.1) :
+    train_index = int(len(total_x) * train_size)
+    valid_index = int(len(total_x) * valid_size)
+
+    X_train, y_train = total_x[0 :train_index], total_y[0 :train_index]
+    X_valid, y_valid = total_x[train_index :train_index + valid_index], total_y[train_index :train_index + valid_index]
+    X_test, y_test = total_x[train_index + valid_index :], total_y[train_index + valid_index :]
+
+    print("-------- train test valid split --------")
+    print(len(X_train)), print(len(y_train))
+    print(len(X_valid)), print(len(y_valid))
+    print(len(X_test)), print(len(y_test))
+    print("----------------------------------------")
+
+    return np.array(X_train), \
+           np.array(y_train), \
+           np.array(X_valid), \
+           np.array(y_valid), \
+           np.array(X_test), \
+           np.array(y_test)
+
+
+def split_sequence(sequence, n_steps):
+    X, y = list(), list()
+    for i in range(len(sequence)):
+        # find the end of this pattern
+        end_ix = i + n_steps
+        # check if we are beyond the sequence
+        if end_ix > len(sequence)-1:
+            break
+        # gather input and output parts of the pattern
+        seq_x, seq_y = sequence[i:end_ix], sequence[end_ix]
+        X.append(seq_x)
+        y.append(seq_y)
+    return np.array(X), np.array(y)
 
 
 """
